@@ -9,6 +9,12 @@ using SocialManager.Models;
 
 namespace SocialManager
 {
+    using System.Configuration;
+    using System.Security.Claims;
+    using System.Threading.Tasks;
+
+    using Microsoft.Owin.Security.Facebook;
+
     public partial class Startup
     {
         // For more information on configuring authentication, please visit http://go.microsoft.com/fwlink/?LinkId=301864
@@ -54,9 +60,35 @@ namespace SocialManager
             //   consumerKey: "",
             //   consumerSecret: "");
 
-            app.UseFacebookAuthentication(
-               appId: "1553463031334825",
-               appSecret: "a6c93e3a149a7cffaf8ccc267f0e9401");
+            //app.UseFacebookAuthentication(
+            //   appId: "1553463031334825",
+            //   appSecret: "a6c93e3a149a7cffaf8ccc267f0e9401");
+
+            //app.UseFacebookAuthentication(
+            //       appId: ConfigurationManager.AppSettings["Facebook_AppId"],
+            //       appSecret: ConfigurationManager.AppSettings["Facebook_AppSecret"]);
+
+            var facebookOptions = new Microsoft.Owin.Security.Facebook.FacebookAuthenticationOptions()
+                                      {
+                                          AppId  = ConfigurationManager.AppSettings["Facebook_AppId"],
+                                          AppSecret = ConfigurationManager.AppSettings["Facebook_AppSecret"],
+                                          Provider = new FacebookAuthenticationProvider()
+                                                         {
+                                                             OnAuthenticated = (context) =>
+                                                                 {
+                                                                     context.Identity.AddClaim(
+                                                                         new System.Security.Claims.Claim(
+                                                                             "FacebookAccessToken",
+                                                                             context.AccessToken));
+                                                                     return Task.FromResult(0);
+                                                                 }
+                                                         },
+                                          SignInAsAuthenticationType = DefaultAuthenticationTypes.ExternalCookie,
+                                          SendAppSecretProof = true
+                                      };
+                
+            facebookOptions.Scope.Add("email user_friends  user_about_me user_brithday user_location");
+            app.UseFacebookAuthentication(facebookOptions);
 
             //app.UseGoogleAuthentication(new GoogleOAuth2AuthenticationOptions()
             //{

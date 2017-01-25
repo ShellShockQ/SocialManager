@@ -333,6 +333,14 @@ namespace SocialManager.Controllers
             switch (result)
             {
                 case SignInStatus.Success:
+                    var user = await UserManager.FindAsync(loginInfo.Login);
+                    if (user != null)
+                    {
+                        await StoreFacebookAuthLogin(user);
+                        await SignInAsync(user, false);
+                    }
+
+
                     return RedirectToLocal(returnUrl);
                 case SignInStatus.LockedOut:
                     return View("Lockout");
@@ -344,6 +352,60 @@ namespace SocialManager.Controllers
                     ViewBag.ReturnUrl = returnUrl;
                     ViewBag.LoginProvider = loginInfo.Login.LoginProvider;
                     return View("ExternalLoginConfirmation", new ExternalLoginConfirmationViewModel { Email = loginInfo.Email });
+            }
+        }
+
+        /// <summary>
+        /// The sign in async.
+        /// </summary>
+        /// <param name="user">
+        /// The user.
+        /// </param>
+        /// <param name="isPersistent">
+        /// The is persistent.
+        /// </param>
+        /// <returns>
+        /// The <see cref="Task"/>.
+        /// </returns>
+        /// <exception cref="NotImplementedException">
+        /// </exception>
+        private async Task SignInAsync(ApplicationUser user, bool isPersistent)
+        {
+            this.AuthenticationManager.SignOut(DefaultAuthenticationTypes.ExternalCookie);
+            this.AuthenticationManager.SignIn(
+                new AuthenticationProperties() { IsPersistent = isPersistent },
+                await user.GenerateUserIdentityAsync(this.UserManager));
+        }
+
+        /// <summary>
+        /// The store facebook auth login.
+        /// </summary>
+        /// <param name="user">
+        /// The user.
+        /// </param>
+        /// <returns>
+        /// The <see cref="Task"/>.
+        /// </returns>
+        private async Task StoreFacebookAuthLogin(ApplicationUser user)
+        {
+            var claimsIdentity =
+                await AuthenticationManager.GetExternalIdentityAsync(DefaultAuthenticationTypes.ExternalCookie);
+            if (claimsIdentity != null)
+            {
+                // Retrieve the existing claims for the user and add the Facebook Token Claim
+                var currentClaims = await this.UserManager.GetClaimsAsync(user.Id);
+                var faceBookAccessToken = claimsIdentity.FindAll("FacebookAccessToken").First();
+                if (!currentClaims.Any())
+                {
+                    await this.UserManager.AddClaimAsync(user.Id, faceBookAccessToken);
+                }
+                else
+                {
+                    await this.UserManager.RemoveClaimAsync(user.Id, currentClaims[0]);
+                    await this.UserManager.AddClaimAsync(user.Id, faceBookAccessToken);
+                }
+
+
             }
         }
 
